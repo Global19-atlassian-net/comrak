@@ -106,5 +106,7 @@ use typed_arena::Arena;
 pub fn markdown_to_html(md: &str, options: &ComrakOptions) -> String {
     let arena = Arena::new();
     let root = parse_document(&arena, md, options);
-    format_html(root, options)
+    let mut s = Vec::new();
+    format_html(root, options, &mut s);
+    String::from_utf8(s).unwrap()
 }

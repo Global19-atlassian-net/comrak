@@ -9,13 +9,13 @@ use std::cmp::max;
 use std::io::Write;
 
 /// Formats an AST as CommonMark, modified by the given options.
-pub fn format_document<'a>(root: &'a AstNode<'a>, options: &ComrakOptions) -> String {
+pub fn format_document<'a>(root: &'a AstNode<'a>, options: &ComrakOptions, output: &mut Write) {
     let mut f = CommonMarkFormatter::new(root, options);
     f.format(root);
     if !f.v.is_empty() && f.v[f.v.len() - 1] != b'\n' {
         f.v.push(b'\n');
     }
-    String::from_utf8(f.v).unwrap()
+    output.write(&f.v).unwrap();
 }
 
 struct CommonMarkFormatter<'a, 'o> {

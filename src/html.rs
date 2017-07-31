@@ -1,18 +1,78 @@
 use ctype::isspace;
 use nodes::{TableAlignment, NodeValue, ListType, AstNode};
 use parser::ComrakOptions;
+use std::cell::Cell;
+use std::io::{Write, Result};
 
 /// Formats an AST as HTML, modified by the given options.
-pub fn format_document<'a>(root: &'a AstNode<'a>, options: &ComrakOptions) -> String {
-    let mut f = HtmlFormatter::new(options);
+pub fn format_document<'a>(root: &'a AstNode<'a>, options: &ComrakOptions, output: &mut Write) {
+    let mut writer = WriteWithLast {
+        output: output,
+        last_was_lf: Cell::new(true),
+    };
+    let mut f = HtmlFormatter::new(options, &mut writer);
     f.format(root, false);
-    f.s
 }
 
+pub struct WriteWithLast<'w> {
+    output: &'w mut Write,
+    pub last_was_lf: Cell<bool>,
+}
+
+impl<'w> Write for WriteWithLast<'w> {
+    fn flush(&mut self) -> Result<()> {
+        self.output.flush()
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let l = buf.len();
+        if l > 0 {
+            self.last_was_lf.set(buf[l - 1] == 10);
+        }
+        self.output.write(buf)
+    }
+}
+
+
 struct HtmlFormatter<'o> {
-    s: String,
+    output: &'o mut WriteWithLast<'o>,
     options: &'o ComrakOptions,
 }
+
+const NEEDS_ESCAPED : [bool; 256] = [
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, true,  false, false, false, true,  false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, true, false, true, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+];
 
 fn tagfilter(literal: &str) -> bool {
     lazy_static! {
@@ -42,7 +102,7 @@ fn tagfilter(literal: &str) -> bool {
     false
 }
 
-fn tagfilter_block(input: &str, mut o: &mut String) {
+fn tagfilter_block(input: &str, o: &mut Write) {
     let src = input.as_bytes();
     let size = src.len();
     let mut i = 0;
@@ -54,7 +114,7 @@ fn tagfilter_block(input: &str, mut o: &mut String) {
         }
 
         if i > org {
-            *o += &input[org..i];
+            o.write(&src[org..i]).unwrap();
         }
 
         if i >= size {
@@ -62,9 +122,9 @@ fn tagfilter_block(input: &str, mut o: &mut String) {
         }
 
         if tagfilter(&input[i..]) {
-            *o += "&lt;";
+            o.write(b"&lt;").unwrap();
         } else {
-            o.push('<');
+            o.write(b"<").unwrap();
         }
 
         i += 1;
@@ -72,31 +132,20 @@ fn tagfilter_block(input: &str, mut o: &mut String) {
 }
 
 impl<'o> HtmlFormatter<'o> {
-    fn new(options: &'o ComrakOptions) -> Self {
+    fn new(options: &'o ComrakOptions, output: &'o mut WriteWithLast<'o>) -> Self {
         HtmlFormatter {
-            s: String::with_capacity(1024),
             options: options,
+            output: output,
         }
     }
 
     fn cr(&mut self) {
-        let l = self.s.len();
-        if l > 0 && self.s.as_bytes()[l - 1] != b'\n' {
-            self.s += "\n";
+        if !self.output.last_was_lf.get() {
+            self.output.write(b"\n").unwrap();
         }
     }
 
     fn escape(&mut self, buffer: &str) {
-        lazy_static! {
-            static ref NEEDS_ESCAPED: [bool; 256] = {
-                let mut sc = [false; 256];
-                for &c in &['"', '&', '<', '>'] {
-                    sc[c as usize] = true;
-                }
-                sc
-            };
-        }
-
         let src = buffer.as_bytes();
         let size = src.len();
         let mut i = 0;
@@ -108,7 +157,7 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             if i > org {
-                self.s += &buffer[org..i];
+                self.output.write(&src[org..i]).unwrap();
             }
 
             if i >= size {
@@ -116,10 +165,10 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '"' => self.s += "&quot;",
-                '&' => self.s += "&amp;",
-                '<' => self.s += "&lt;",
-                '>' => self.s += "&gt;",
+                '"' => { self.output.write(b"&quot;").unwrap(); },
+                '&' => { self.output.write(b"&amp;").unwrap(); },
+                '<' => { self.output.write(b"&lt;").unwrap(); },
+                '>' => { self.output.write(b"&gt;").unwrap(); },
                 _ => unreachable!(),
             }
 
@@ -149,7 +198,7 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             if i > org {
-                self.s += &buffer[org..i];
+                self.output.write(&src[org..i]).unwrap();
             }
 
             if i >= size {
@@ -157,9 +206,9 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '&' => self.s += "&amp;",
-                '\'' => self.s += "&#x27;",
-                _ => self.s += &format!("%{:02X}", src[i]),
+                '&' => { self.output.write(b"&amp;").unwrap(); },
+                '\'' => { self.output.write(b"&#x27;").unwrap(); },
+                _ => write!(self.output, "%{:02X}", src[i]).unwrap(),
             }
 
             i += 1;
@@ -178,7 +227,7 @@ impl<'o> HtmlFormatter<'o> {
                 NodeValue::Text(ref literal) |
                 NodeValue::Code(ref literal) |
                 NodeValue::HtmlInline(ref literal) => self.escape(literal),
-                NodeValue::LineBreak | NodeValue::SoftBreak => self.s.push(' '),
+                NodeValue::LineBreak | NodeValue::SoftBreak => { self.output.write(b" ").unwrap(); },
                 _ => (),
             }
             self.format_children(node, true);
@@ -195,42 +244,42 @@ impl<'o> HtmlFormatter<'o> {
             NodeValue::BlockQuote => {
                 if entering {
                     self.cr();
-                    self.s += "<blockquote>\n";
+                    self.output.write(b"<blockquote>\n").unwrap();
                 } else {
                     self.cr();
-                    self.s += "</blockquote>\n";
+                    self.output.write(b"</blockquote>\n").unwrap();
                 }
             }
             NodeValue::List(ref nl) => {
                 if entering {
                     self.cr();
                     if nl.list_type == ListType::Bullet {
-                        self.s += "<ul>\n";
+                        self.output.write(b"<ul>\n").unwrap();
                     } else if nl.start == 1 {
-                        self.s += "<ol>\n";
+                        self.output.write(b"<ol>\n").unwrap();
                     } else {
-                        self.s += &format!("<ol start=\"{}\">\n", nl.start);
+                        write!(self.output, "<ol start=\"{}\">\n", nl.start).unwrap();
                     }
                 } else if nl.list_type == ListType::Bullet {
-                    self.s += "</ul>\n";
+                    self.output.write(b"</ul>\n").unwrap();
                 } else {
-                    self.s += "</ol>\n";
+                    self.output.write(b"</ol>\n").unwrap();
                 }
             }
             NodeValue::Item(..) => {
                 if entering {
                     self.cr();
-                    self.s += "<li>";
+                    self.output.write(b"<li>").unwrap();
                 } else {
-                    self.s += "</li>\n";
+                    self.output.write(b"</li>\n").unwrap();
                 }
             }
             NodeValue::Heading(ref nch) => {
                 if entering {
                     self.cr();
-                    self.s += &format!("<h{}>", nch.level);
+                    write!(self.output, "<h{}>", nch.level).unwrap();
                 } else {
-                    self.s += &format!("</h{}>\n", nch.level);
+                    write!(self.output, "</h{}>\n", nch.level).unwrap();
                 }
             }
             NodeValue::CodeBlock(ref ncb) => {
@@ -238,7 +287,7 @@ impl<'o> HtmlFormatter<'o> {
                     self.cr();
 
                     if ncb.info.is_empty() {
-                        self.s += "<pre><code>";
+                        self.output.write(b"<pre><code>").unwrap();
                     } else {
                         let mut first_tag = 0;
                         while first_tag < ncb.info.len() &&
@@ -248,26 +297,26 @@ impl<'o> HtmlFormatter<'o> {
                         }
 
                         if self.options.github_pre_lang {
-                            self.s += "<pre lang=\"";
+                            self.output.write(b"<pre lang=\"").unwrap();
                             self.escape(&ncb.info[..first_tag]);
-                            self.s += "\"><code>";
+                            self.output.write(b"\"><code>").unwrap();
                         } else {
-                            self.s += "<pre><code class=\"language-";
+                            self.output.write(b"<pre><code class=\"language-").unwrap();
                             self.escape(&ncb.info[..first_tag]);
-                            self.s += "\">";
+                            self.output.write(b"\">").unwrap();
                         }
                     }
                     self.escape(&ncb.literal);
-                    self.s += "</code></pre>\n";
+                    self.output.write(b"</code></pre>\n").unwrap();
                 }
             }
             NodeValue::HtmlBlock(ref nhb) => {
                 if entering {
                     self.cr();
                     if self.options.ext_tagfilter {
-                        tagfilter_block(&nhb.literal, &mut self.s);
+                        tagfilter_block(&nhb.literal, &mut self.output);
                     } else {
-                        self.s += &nhb.literal;
+                        self.output.write(nhb.literal.as_bytes()).unwrap();
                     }
                     self.cr();
                 }
@@ -275,7 +324,7 @@ impl<'o> HtmlFormatter<'o> {
             NodeValue::ThematicBreak => {
                 if entering {
                     self.cr();
-                    self.s += "<hr />\n";
+                    self.output.write(b"<hr />\n").unwrap();
                 }
             }
             NodeValue::Paragraph => {
@@ -289,10 +338,10 @@ impl<'o> HtmlFormatter<'o> {
                 if entering {
                     if !tight {
                         self.cr();
-                        self.s += "<p>";
+                        self.output.write(b"<p>").unwrap();
                     }
                 } else if !tight {
-                    self.s += "</p>\n";
+                    self.output.write(b"</p>\n").unwrap();
                 }
             }
             NodeValue::Text(ref literal) => {
@@ -302,120 +351,120 @@ impl<'o> HtmlFormatter<'o> {
             }
             NodeValue::LineBreak => {
                 if entering {
-                    self.s += "<br />\n";
+                    self.output.write(b"<br />\n").unwrap();
                 }
             }
             NodeValue::SoftBreak => {
                 if entering {
                     if self.options.hardbreaks {
-                        self.s += "<br />\n";
+                        self.output.write(b"<br />\n").unwrap();
                     } else {
-                        self.s += "\n";
+                        self.output.write(b"\n").unwrap();
                     }
                 }
             }
             NodeValue::Code(ref literal) => {
                 if entering {
-                    self.s += "<code>";
+                    self.output.write(b"<code>").unwrap();
                     self.escape(literal);
-                    self.s += "</code>";
+                    self.output.write(b"</code>").unwrap();
                 }
             }
             NodeValue::HtmlInline(ref literal) => {
                 if entering {
                     if self.options.ext_tagfilter && tagfilter(literal) {
-                        self.s += "&lt;";
-                        self.s += &literal[1..];
+                        self.output.write(b"&lt;").unwrap();
+                        self.output.write(&literal[1..].as_bytes()).unwrap();
                     } else {
-                        self.s += literal;
+                        self.output.write(literal.as_bytes()).unwrap();
                     }
                 }
             }
             NodeValue::Strong => {
                 if entering {
-                    self.s += "<strong>";
+                    self.output.write(b"<strong>").unwrap();
                 } else {
-                    self.s += "</strong>";
+                    self.output.write(b"</strong>").unwrap();
                 }
             }
             NodeValue::Emph => {
                 if entering {
-                    self.s += "<em>";
+                    self.output.write(b"<em>").unwrap();
                 } else {
-                    self.s += "</em>";
+                    self.output.write(b"</em>").unwrap();
                 }
             }
             NodeValue::Strikethrough => {
                 if entering {
-                    self.s += "<del>";
+                    self.output.write(b"<del>").unwrap();
                 } else {
-                    self.s += "</del>";
+                    self.output.write(b"</del>").unwrap();
                 }
             }
             NodeValue::Superscript => {
                 if entering {
-                    self.s += "<sup>";
+                    self.output.write(b"<sup>").unwrap();
                 } else {
-                    self.s += "</sup>";
+                    self.output.write(b"</sup>").unwrap();
                 }
             }
             NodeValue::Link(ref nl) => {
                 if entering {
-                    self.s += "<a href=\"";
+                    self.output.write(b"<a href=\"").unwrap();
                     self.escape_href(&nl.url);
                     if !nl.title.is_empty() {
-                        self.s += "\" title=\"";
+                        self.output.write(b"\" title=\"").unwrap();
                         self.escape(&nl.title);
                     }
-                    self.s += "\">";
+                    self.output.write(b"\">").unwrap();
                 } else {
-                    self.s += "</a>";
+                    self.output.write(b"</a>").unwrap();
                 }
             }
             NodeValue::Image(ref nl) => {
                 if entering {
-                    self.s += "<img src=\"";
+                    self.output.write(b"<img src=\"").unwrap();
                     self.escape_href(&nl.url);
-                    self.s += "\" alt=\"";
+                    self.output.write(b"\" alt=\"").unwrap();
                     return true;
                 } else {
                     if !nl.title.is_empty() {
-                        self.s += "\" title=\"";
+                        self.output.write(b"\" title=\"").unwrap();
                         self.escape(&nl.title);
                     }
-                    self.s += "\" />";
+                    self.output.write(b"\" />").unwrap();
                 }
             }
             NodeValue::Table(..) => {
                 if entering {
                     self.cr();
-                    self.s += "<table>\n";
+                    self.output.write(b"<table>\n").unwrap();
                 } else {
                     if !node.last_child().unwrap().same_node(
                         node.first_child().unwrap(),
                     )
                     {
-                        self.s += "</tbody>";
+                        self.output.write(b"</tbody>").unwrap();
                     }
-                    self.s += "</table>\n";
+                    self.output.write(b"</table>\n").unwrap();
                 }
             }
             NodeValue::TableRow(header) => {
                 if entering {
                     self.cr();
                     if header {
-                        self.s += "<thead>";
+                        self.output.write(b"<thead>").unwrap();
                         self.cr();
                     }
-                    self.s += "<tr>";
+                    self.output.write(b"<tr>").unwrap();
                 } else {
                     self.cr();
-                    self.s += "</tr>";
+                    self.output.write(b"</tr>").unwrap();
                     if header {
                         self.cr();
-                        self.s += "</thead>";
+                        self.output.write(b"</thead>").unwrap();
                         self.cr();
-                        self.s += "<tbody>";
+                        self.output.write(b"<tbody>").unwrap();
                     }
                 }
             }
@@ -435,9 +484,9 @@ impl<'o> HtmlFormatter<'o> {
                 if entering {
                     self.cr();
                     if in_header {
-                        self.s += "<th";
+                        self.output.write(b"<th").unwrap();
                     } else {
-                        self.s += "<td";
+                        self.output.write(b"<td").unwrap();
                     }
 
                     let mut start = node.parent().unwrap().first_child().unwrap();
@@ -448,17 +497,17 @@ impl<'o> HtmlFormatter<'o> {
                     }
 
                     match alignments[i] {
-                        TableAlignment::Left => self.s += " align=\"left\"",
-                        TableAlignment::Right => self.s += " align=\"right\"",
-                        TableAlignment::Center => self.s += " align=\"center\"",
+                        TableAlignment::Left => { self.output.write(b" align=\"left\"").unwrap(); },
+                        TableAlignment::Right => { self.output.write(b" align=\"right\"").unwrap(); },
+                        TableAlignment::Center => { self.output.write(b" align=\"center\"").unwrap(); },
                         TableAlignment::None => (),
                     }
 
-                    self.s += ">";
+                    self.output.write(b">").unwrap();
                 } else if in_header {
-                    self.s += "</th>";
+                    self.output.write(b"</th>").unwrap();
                 } else {
-                    self.s += "</td>";
+                    self.output.write(b"</td>").unwrap();
                 }
             }
         }

@@ -144,7 +144,7 @@ fn main() {
         _ => panic!("unknown format"),
     };
 
-    print!("{}", formatter(root, &options));
+    formatter(root, &options, &mut std::io::stdout());
 
     process::exit(0);
 }
