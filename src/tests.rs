@@ -32,12 +32,19 @@ where
     opts(&mut options);
 
     let root = parse_document(&arena, &input.chars().collect::<String>(), &options);
-    let output = html::format_document(root, &options);
+    let mut output = vec![];
+    html::format_document(root, &options, &mut output);
+    let output = String::from_utf8(output).unwrap();
     compare_strs(&output, expected, "regular");
 
-    let md = cm::format_document(root, &options);
+    let mut output = vec![];
+    cm::format_document(root, &options, &mut output);
+    let md = String::from_utf8(output).unwrap();
     let root = parse_document(&arena, &md.chars().collect::<String>(), &options);
-    let output_from_rt = html::format_document(root, &options);
+
+    let mut output = vec![];
+    html::format_document(root, &options, &mut output);
+    let output_from_rt = String::from_utf8(output).unwrap();
     compare_strs(&output_from_rt, expected, "roundtrip");
 }
 
