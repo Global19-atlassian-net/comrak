@@ -31,7 +31,7 @@ where
     let mut options = ComrakOptions::default();
     opts(&mut options);
 
-    let root = parse_document(&arena, &input.chars().collect::<String>(), &options);
+    let root = parse_document(&arena, input.as_bytes(), &options);
     let mut output = vec![];
     html::format_document(root, &options, &mut output);
     let output = String::from_utf8(output).unwrap();
@@ -40,7 +40,7 @@ where
     let mut output = vec![];
     cm::format_document(root, &options, &mut output);
     let md = String::from_utf8(output).unwrap();
-    let root = parse_document(&arena, &md.chars().collect::<String>(), &options);
+    let root = parse_document(&arena, md.as_bytes(), &options);
 
     let mut output = vec![];
     html::format_document(root, &options, &mut output);

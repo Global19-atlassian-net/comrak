@@ -74,36 +74,36 @@ const NEEDS_ESCAPED : [bool; 256] = [
     false, false, false, false, false, false, false, false,
 ];
 
-fn tagfilter(literal: &str) -> bool {
+fn tagfilter(literal: &[u8]) -> bool {
     lazy_static! {
         static ref TAGFILTER_BLACKLIST: [&'static str; 9] =
             ["title", "textarea", "style", "xmp", "iframe",
              "noembed", "noframes", "script", "plaintext"];
     }
 
-    if literal.len() < 3 || literal.as_bytes()[0] != b'<' {
+    if literal.len() < 3 || literal[0] != b'<' {
         return false;
     }
 
     let mut i = 1;
-    if literal.as_bytes()[i] == b'/' {
+    if literal[i] == b'/' {
         i += 1;
     }
 
     for t in TAGFILTER_BLACKLIST.iter() {
-        if literal[i..].to_string().to_lowercase().starts_with(t) {
+        if unsafe { String::from_utf8_unchecked(literal[i..].to_vec()) }.to_lowercase().starts_with(t) {
             let j = i + t.len();
-            return isspace(literal.as_bytes()[j]) || literal.as_bytes()[j] == b'>' ||
-                (literal.as_bytes()[j] == b'/' && literal.len() >= j + 2 &&
-                     literal.as_bytes()[j + 1] == b'>');
+            return isspace(literal[j]) || literal[j] == b'>' ||
+                (literal[j] == b'/' && literal.len() >= j + 2 &&
+                     literal[j + 1] == b'>');
         }
     }
 
     false
 }
 
-fn tagfilter_block(input: &str, o: &mut Write) {
-    let src = input.as_bytes();
+fn tagfilter_block(input: &[u8], o: &mut Write) {
+    let src = input;
     let size = src.len();
     let mut i = 0;
 
@@ -145,8 +145,8 @@ impl<'o> HtmlFormatter<'o> {
         }
     }
 
-    fn escape(&mut self, buffer: &str) {
-        let src = buffer.as_bytes();
+    fn escape(&mut self, buffer: &[u8]) {
+        let src = buffer;
         let size = src.len();
         let mut i = 0;
 
@@ -184,7 +184,7 @@ impl<'o> HtmlFormatter<'o> {
         }
     }
 
-    fn escape_href(&mut self, buffer: &str) {
+    fn escape_href(&mut self, buffer: &[u8]) {
         lazy_static! {
             static ref HREF_SAFE: [bool; 256] = {
                 let mut a = [false; 256];
@@ -198,7 +198,7 @@ impl<'o> HtmlFormatter<'o> {
             };
         }
 
-        let src = buffer.as_bytes();
+        let src = buffer;
         let size = src.len();
         let mut i = 0;
 
@@ -308,7 +308,7 @@ impl<'o> HtmlFormatter<'o> {
                     } else {
                         let mut first_tag = 0;
                         while first_tag < ncb.info.len() &&
-                            !isspace(ncb.info.as_bytes()[first_tag])
+                            !isspace(ncb.info[first_tag])
                         {
                             first_tag += 1;
                         }
@@ -335,7 +335,7 @@ impl<'o> HtmlFormatter<'o> {
                     if self.options.ext_tagfilter {
                         tagfilter_block(&nhb.literal, &mut self.output);
                     } else {
-                        self.output.write_all(nhb.literal.as_bytes()).unwrap();
+                        self.output.write_all(&nhb.literal).unwrap();
                     }
                     self.cr();
                 }
@@ -393,9 +393,9 @@ impl<'o> HtmlFormatter<'o> {
                 if entering {
                     if self.options.ext_tagfilter && tagfilter(literal) {
                         self.output.write_all(b"&lt;").unwrap();
-                        self.output.write_all(literal[1..].as_bytes()).unwrap();
+                        self.output.write_all(&literal[1..]).unwrap();
                     } else {
-                        self.output.write_all(literal.as_bytes()).unwrap();
+                        self.output.write_all(&literal).unwrap();
                     }
                 }
             }
