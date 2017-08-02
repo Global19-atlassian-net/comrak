@@ -221,10 +221,11 @@ fn url_match<'a>(
         rewind += 1;
     }
 
-    if !SCHEMES.iter().any(|s| {
+    let scheme_match = |s: &&str| {
         size - i + rewind >= s.len() && &&contents[i - rewind..i] == s
-    })
-    {
+    };
+
+    if !SCHEMES.iter().any(scheme_match) {
         return None;
     }
 

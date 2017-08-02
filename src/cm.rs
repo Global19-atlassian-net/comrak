@@ -15,7 +15,7 @@ pub fn format_document<'a>(root: &'a AstNode<'a>, options: &ComrakOptions, outpu
     if !f.v.is_empty() && f.v[f.v.len() - 1] != b'\n' {
         f.v.push(b'\n');
     }
-    output.write(&f.v).unwrap();
+    output.write_all(&f.v).unwrap();
 }
 
 struct CommonMarkFormatter<'a, 'o> {

@@ -114,7 +114,7 @@ fn tagfilter_block(input: &str, o: &mut Write) {
         }
 
         if i > org {
-            o.write(&src[org..i]).unwrap();
+            o.write_all(&src[org..i]).unwrap();
         }
 
         if i >= size {
@@ -122,9 +122,9 @@ fn tagfilter_block(input: &str, o: &mut Write) {
         }
 
         if tagfilter(&input[i..]) {
-            o.write(b"&lt;").unwrap();
+            o.write_all(b"&lt;").unwrap();
         } else {
-            o.write(b"<").unwrap();
+            o.write_all(b"<").unwrap();
         }
 
         i += 1;
@@ -141,7 +141,7 @@ impl<'o> HtmlFormatter<'o> {
 
     fn cr(&mut self) {
         if !self.output.last_was_lf.get() {
-            self.output.write(b"\n").unwrap();
+            self.output.write_all(b"\n").unwrap();
         }
     }
 
@@ -157,7 +157,7 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             if i > org {
-                self.output.write(&src[org..i]).unwrap();
+                self.output.write_all(&src[org..i]).unwrap();
             }
 
             if i >= size {
@@ -165,10 +165,10 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '"' => { self.output.write(b"&quot;").unwrap(); },
-                '&' => { self.output.write(b"&amp;").unwrap(); },
-                '<' => { self.output.write(b"&lt;").unwrap(); },
-                '>' => { self.output.write(b"&gt;").unwrap(); },
+                '"' => { self.output.write_all(b"&quot;").unwrap(); },
+                '&' => { self.output.write_all(b"&amp;").unwrap(); },
+                '<' => { self.output.write_all(b"&lt;").unwrap(); },
+                '>' => { self.output.write_all(b"&gt;").unwrap(); },
                 _ => unreachable!(),
             }
 
@@ -198,7 +198,7 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             if i > org {
-                self.output.write(&src[org..i]).unwrap();
+                self.output.write_all(&src[org..i]).unwrap();
             }
 
             if i >= size {
@@ -206,8 +206,8 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '&' => { self.output.write(b"&amp;").unwrap(); },
-                '\'' => { self.output.write(b"&#x27;").unwrap(); },
+                '&' => { self.output.write_all(b"&amp;").unwrap(); },
+                '\'' => { self.output.write_all(b"&#x27;").unwrap(); },
                 _ => write!(self.output, "%{:02X}", src[i]).unwrap(),
             }
 
@@ -227,7 +227,7 @@ impl<'o> HtmlFormatter<'o> {
                 NodeValue::Text(ref literal) |
                 NodeValue::Code(ref literal) |
                 NodeValue::HtmlInline(ref literal) => self.escape(literal),
-                NodeValue::LineBreak | NodeValue::SoftBreak => { self.output.write(b" ").unwrap(); },
+                NodeValue::LineBreak | NodeValue::SoftBreak => { self.output.write_all(b" ").unwrap(); },
                 _ => (),
             }
             self.format_children(node, true);
@@ -244,34 +244,34 @@ impl<'o> HtmlFormatter<'o> {
             NodeValue::BlockQuote => {
                 if entering {
                     self.cr();
-                    self.output.write(b"<blockquote>\n").unwrap();
+                    self.output.write_all(b"<blockquote>\n").unwrap();
                 } else {
                     self.cr();
-                    self.output.write(b"</blockquote>\n").unwrap();
+                    self.output.write_all(b"</blockquote>\n").unwrap();
                 }
             }
             NodeValue::List(ref nl) => {
                 if entering {
                     self.cr();
                     if nl.list_type == ListType::Bullet {
-                        self.output.write(b"<ul>\n").unwrap();
+                        self.output.write_all(b"<ul>\n").unwrap();
                     } else if nl.start == 1 {
-                        self.output.write(b"<ol>\n").unwrap();
+                        self.output.write_all(b"<ol>\n").unwrap();
                     } else {
                         write!(self.output, "<ol start=\"{}\">\n", nl.start).unwrap();
                     }
                 } else if nl.list_type == ListType::Bullet {
-                    self.output.write(b"</ul>\n").unwrap();
+                    self.output.write_all(b"</ul>\n").unwrap();
                 } else {
-                    self.output.write(b"</ol>\n").unwrap();
+                    self.output.write_all(b"</ol>\n").unwrap();
                 }
             }
             NodeValue::Item(..) => {
                 if entering {
                     self.cr();
-                    self.output.write(b"<li>").unwrap();
+                    self.output.write_all(b"<li>").unwrap();
                 } else {
-                    self.output.write(b"</li>\n").unwrap();
+                    self.output.write_all(b"</li>\n").unwrap();
                 }
             }
             NodeValue::Heading(ref nch) => {
@@ -287,7 +287,7 @@ impl<'o> HtmlFormatter<'o> {
                     self.cr();
 
                     if ncb.info.is_empty() {
-                        self.output.write(b"<pre><code>").unwrap();
+                        self.output.write_all(b"<pre><code>").unwrap();
                     } else {
                         let mut first_tag = 0;
                         while first_tag < ncb.info.len() &&
@@ -297,17 +297,17 @@ impl<'o> HtmlFormatter<'o> {
                         }
 
                         if self.options.github_pre_lang {
-                            self.output.write(b"<pre lang=\"").unwrap();
+                            self.output.write_all(b"<pre lang=\"").unwrap();
                             self.escape(&ncb.info[..first_tag]);
-                            self.output.write(b"\"><code>").unwrap();
+                            self.output.write_all(b"\"><code>").unwrap();
                         } else {
-                            self.output.write(b"<pre><code class=\"language-").unwrap();
+                            self.output.write_all(b"<pre><code class=\"language-").unwrap();
                             self.escape(&ncb.info[..first_tag]);
-                            self.output.write(b"\">").unwrap();
+                            self.output.write_all(b"\">").unwrap();
                         }
                     }
                     self.escape(&ncb.literal);
-                    self.output.write(b"</code></pre>\n").unwrap();
+                    self.output.write_all(b"</code></pre>\n").unwrap();
                 }
             }
             NodeValue::HtmlBlock(ref nhb) => {
@@ -316,7 +316,7 @@ impl<'o> HtmlFormatter<'o> {
                     if self.options.ext_tagfilter {
                         tagfilter_block(&nhb.literal, &mut self.output);
                     } else {
-                        self.output.write(nhb.literal.as_bytes()).unwrap();
+                        self.output.write_all(nhb.literal.as_bytes()).unwrap();
                     }
                     self.cr();
                 }
@@ -324,7 +324,7 @@ impl<'o> HtmlFormatter<'o> {
             NodeValue::ThematicBreak => {
                 if entering {
                     self.cr();
-                    self.output.write(b"<hr />\n").unwrap();
+                    self.output.write_all(b"<hr />\n").unwrap();
                 }
             }
             NodeValue::Paragraph => {
@@ -338,10 +338,10 @@ impl<'o> HtmlFormatter<'o> {
                 if entering {
                     if !tight {
                         self.cr();
-                        self.output.write(b"<p>").unwrap();
+                        self.output.write_all(b"<p>").unwrap();
                     }
                 } else if !tight {
-                    self.output.write(b"</p>\n").unwrap();
+                    self.output.write_all(b"</p>\n").unwrap();
                 }
             }
             NodeValue::Text(ref literal) => {
@@ -351,120 +351,120 @@ impl<'o> HtmlFormatter<'o> {
             }
             NodeValue::LineBreak => {
                 if entering {
-                    self.output.write(b"<br />\n").unwrap();
+                    self.output.write_all(b"<br />\n").unwrap();
                 }
             }
             NodeValue::SoftBreak => {
                 if entering {
                     if self.options.hardbreaks {
-                        self.output.write(b"<br />\n").unwrap();
+                        self.output.write_all(b"<br />\n").unwrap();
                     } else {
-                        self.output.write(b"\n").unwrap();
+                        self.output.write_all(b"\n").unwrap();
                     }
                 }
             }
             NodeValue::Code(ref literal) => {
                 if entering {
-                    self.output.write(b"<code>").unwrap();
+                    self.output.write_all(b"<code>").unwrap();
                     self.escape(literal);
-                    self.output.write(b"</code>").unwrap();
+                    self.output.write_all(b"</code>").unwrap();
                 }
             }
             NodeValue::HtmlInline(ref literal) => {
                 if entering {
                     if self.options.ext_tagfilter && tagfilter(literal) {
-                        self.output.write(b"&lt;").unwrap();
-                        self.output.write(&literal[1..].as_bytes()).unwrap();
+                        self.output.write_all(b"&lt;").unwrap();
+                        self.output.write_all(literal[1..].as_bytes()).unwrap();
                     } else {
-                        self.output.write(literal.as_bytes()).unwrap();
+                        self.output.write_all(literal.as_bytes()).unwrap();
                     }
                 }
             }
             NodeValue::Strong => {
                 if entering {
-                    self.output.write(b"<strong>").unwrap();
+                    self.output.write_all(b"<strong>").unwrap();
                 } else {
-                    self.output.write(b"</strong>").unwrap();
+                    self.output.write_all(b"</strong>").unwrap();
                 }
             }
             NodeValue::Emph => {
                 if entering {
-                    self.output.write(b"<em>").unwrap();
+                    self.output.write_all(b"<em>").unwrap();
                 } else {
-                    self.output.write(b"</em>").unwrap();
+                    self.output.write_all(b"</em>").unwrap();
                 }
             }
             NodeValue::Strikethrough => {
                 if entering {
-                    self.output.write(b"<del>").unwrap();
+                    self.output.write_all(b"<del>").unwrap();
                 } else {
-                    self.output.write(b"</del>").unwrap();
+                    self.output.write_all(b"</del>").unwrap();
                 }
             }
             NodeValue::Superscript => {
                 if entering {
-                    self.output.write(b"<sup>").unwrap();
+                    self.output.write_all(b"<sup>").unwrap();
                 } else {
-                    self.output.write(b"</sup>").unwrap();
+                    self.output.write_all(b"</sup>").unwrap();
                 }
             }
             NodeValue::Link(ref nl) => {
                 if entering {
-                    self.output.write(b"<a href=\"").unwrap();
+                    self.output.write_all(b"<a href=\"").unwrap();
                     self.escape_href(&nl.url);
                     if !nl.title.is_empty() {
-                        self.output.write(b"\" title=\"").unwrap();
+                        self.output.write_all(b"\" title=\"").unwrap();
                         self.escape(&nl.title);
                     }
-                    self.output.write(b"\">").unwrap();
+                    self.output.write_all(b"\">").unwrap();
                 } else {
-                    self.output.write(b"</a>").unwrap();
+                    self.output.write_all(b"</a>").unwrap();
                 }
             }
             NodeValue::Image(ref nl) => {
                 if entering {
-                    self.output.write(b"<img src=\"").unwrap();
+                    self.output.write_all(b"<img src=\"").unwrap();
                     self.escape_href(&nl.url);
-                    self.output.write(b"\" alt=\"").unwrap();
+                    self.output.write_all(b"\" alt=\"").unwrap();
                     return true;
                 } else {
                     if !nl.title.is_empty() {
-                        self.output.write(b"\" title=\"").unwrap();
+                        self.output.write_all(b"\" title=\"").unwrap();
                         self.escape(&nl.title);
                     }
-                    self.output.write(b"\" />").unwrap();
+                    self.output.write_all(b"\" />").unwrap();
                 }
             }
             NodeValue::Table(..) => {
                 if entering {
                     self.cr();
-                    self.output.write(b"<table>\n").unwrap();
+                    self.output.write_all(b"<table>\n").unwrap();
                 } else {
                     if !node.last_child().unwrap().same_node(
                         node.first_child().unwrap(),
                     )
                     {
-                        self.output.write(b"</tbody>").unwrap();
+                        self.output.write_all(b"</tbody>").unwrap();
                     }
-                    self.output.write(b"</table>\n").unwrap();
+                    self.output.write_all(b"</table>\n").unwrap();
                 }
             }
             NodeValue::TableRow(header) => {
                 if entering {
                     self.cr();
                     if header {
-                        self.output.write(b"<thead>").unwrap();
+                        self.output.write_all(b"<thead>").unwrap();
                         self.cr();
                     }
-                    self.output.write(b"<tr>").unwrap();
+                    self.output.write_all(b"<tr>").unwrap();
                 } else {
                     self.cr();
-                    self.output.write(b"</tr>").unwrap();
+                    self.output.write_all(b"</tr>").unwrap();
                     if header {
                         self.cr();
-                        self.output.write(b"</thead>").unwrap();
+                        self.output.write_all(b"</thead>").unwrap();
                         self.cr();
-                        self.output.write(b"<tbody>").unwrap();
+                        self.output.write_all(b"<tbody>").unwrap();
                     }
                 }
             }
@@ -484,9 +484,9 @@ impl<'o> HtmlFormatter<'o> {
                 if entering {
                     self.cr();
                     if in_header {
-                        self.output.write(b"<th").unwrap();
+                        self.output.write_all(b"<th").unwrap();
                     } else {
-                        self.output.write(b"<td").unwrap();
+                        self.output.write_all(b"<td").unwrap();
                     }
 
                     let mut start = node.parent().unwrap().first_child().unwrap();
@@ -497,17 +497,17 @@ impl<'o> HtmlFormatter<'o> {
                     }
 
                     match alignments[i] {
-                        TableAlignment::Left => { self.output.write(b" align=\"left\"").unwrap(); },
-                        TableAlignment::Right => { self.output.write(b" align=\"right\"").unwrap(); },
-                        TableAlignment::Center => { self.output.write(b" align=\"center\"").unwrap(); },
+                        TableAlignment::Left => { self.output.write_all(b" align=\"left\"").unwrap(); },
+                        TableAlignment::Right => { self.output.write_all(b" align=\"right\"").unwrap(); },
+                        TableAlignment::Center => { self.output.write_all(b" align=\"center\"").unwrap(); },
                         TableAlignment::None => (),
                     }
 
-                    self.output.write(b">").unwrap();
+                    self.output.write_all(b">").unwrap();
                 } else if in_header {
-                    self.output.write(b"</th>").unwrap();
+                    self.output.write_all(b"</th>").unwrap();
                 } else {
-                    self.output.write(b"</td>").unwrap();
+                    self.output.write_all(b"</td>").unwrap();
                 }
             }
         }

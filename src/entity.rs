@@ -20,7 +20,7 @@ pub fn unescape(text: &str) -> Option<(String, usize)> {
             i = 1;
             while i < text.len() && isdigit(text.as_bytes()[i]) {
                 codepoint = (codepoint * 10) + (text.as_bytes()[i] as u32 - '0' as u32);
-                codepoint = min(codepoint, 0x110000);
+                codepoint = min(codepoint, 0x11_0000);
                 i += 1;
             }
             i - 1
@@ -28,7 +28,7 @@ pub fn unescape(text: &str) -> Option<(String, usize)> {
             i = 2;
             while i < text.len() && isxdigit(&text.as_bytes()[i]) {
                 codepoint = (codepoint * 16) + ((text.as_bytes()[i] as u32 | 32) % 39 - 9);
-                codepoint = min(codepoint, 0x110000);
+                codepoint = min(codepoint, 0x11_0000);
                 i += 1;
             }
             i - 2
@@ -38,7 +38,7 @@ pub fn unescape(text: &str) -> Option<(String, usize)> {
 
         if num_digits >= 1 && num_digits <= 8 && i < text.len() && text.as_bytes()[i] == b';' {
             if codepoint == 0 || (codepoint >= 0xD800 && codepoint <= 0xE000) ||
-                codepoint >= 0x110000
+                codepoint >= 0x11_0000
             {
                 codepoint = 0xFFFD;
             }
