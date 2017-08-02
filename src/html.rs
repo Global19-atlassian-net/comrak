@@ -165,10 +165,18 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '"' => { self.output.write_all(b"&quot;").unwrap(); },
-                '&' => { self.output.write_all(b"&amp;").unwrap(); },
-                '<' => { self.output.write_all(b"&lt;").unwrap(); },
-                '>' => { self.output.write_all(b"&gt;").unwrap(); },
+                '"' => {
+                    self.output.write_all(b"&quot;").unwrap();
+                }
+                '&' => {
+                    self.output.write_all(b"&amp;").unwrap();
+                }
+                '<' => {
+                    self.output.write_all(b"&lt;").unwrap();
+                }
+                '>' => {
+                    self.output.write_all(b"&gt;").unwrap();
+                }
                 _ => unreachable!(),
             }
 
@@ -180,7 +188,10 @@ impl<'o> HtmlFormatter<'o> {
         lazy_static! {
             static ref HREF_SAFE: [bool; 256] = {
                 let mut a = [false; 256];
-                for &c in b"-_.+!*'(),%#@?=;:/,+&$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".iter() {
+                for &c in b"-_.+!*'(),%#@?=;:/,+&$abcdefghijklmnopqrstuvwxyz".iter() {
+                    a[c as usize] = true;
+                }
+                for &c in b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".iter() {
                     a[c as usize] = true;
                 }
                 a
@@ -206,8 +217,12 @@ impl<'o> HtmlFormatter<'o> {
             }
 
             match src[i] as char {
-                '&' => { self.output.write_all(b"&amp;").unwrap(); },
-                '\'' => { self.output.write_all(b"&#x27;").unwrap(); },
+                '&' => {
+                    self.output.write_all(b"&amp;").unwrap();
+                }
+                '\'' => {
+                    self.output.write_all(b"&#x27;").unwrap();
+                }
                 _ => write!(self.output, "%{:02X}", src[i]).unwrap(),
             }
 
@@ -227,7 +242,9 @@ impl<'o> HtmlFormatter<'o> {
                 NodeValue::Text(ref literal) |
                 NodeValue::Code(ref literal) |
                 NodeValue::HtmlInline(ref literal) => self.escape(literal),
-                NodeValue::LineBreak | NodeValue::SoftBreak => { self.output.write_all(b" ").unwrap(); },
+                NodeValue::LineBreak | NodeValue::SoftBreak => {
+                    self.output.write_all(b" ").unwrap();
+                }
                 _ => (),
             }
             self.format_children(node, true);
@@ -301,7 +318,9 @@ impl<'o> HtmlFormatter<'o> {
                             self.escape(&ncb.info[..first_tag]);
                             self.output.write_all(b"\"><code>").unwrap();
                         } else {
-                            self.output.write_all(b"<pre><code class=\"language-").unwrap();
+                            self.output
+                                .write_all(b"<pre><code class=\"language-")
+                                .unwrap();
                             self.escape(&ncb.info[..first_tag]);
                             self.output.write_all(b"\">").unwrap();
                         }
@@ -497,9 +516,15 @@ impl<'o> HtmlFormatter<'o> {
                     }
 
                     match alignments[i] {
-                        TableAlignment::Left => { self.output.write_all(b" align=\"left\"").unwrap(); },
-                        TableAlignment::Right => { self.output.write_all(b" align=\"right\"").unwrap(); },
-                        TableAlignment::Center => { self.output.write_all(b" align=\"center\"").unwrap(); },
+                        TableAlignment::Left => {
+                            self.output.write_all(b" align=\"left\"").unwrap();
+                        }
+                        TableAlignment::Right => {
+                            self.output.write_all(b" align=\"right\"").unwrap();
+                        }
+                        TableAlignment::Center => {
+                            self.output.write_all(b" align=\"center\"").unwrap();
+                        }
                         TableAlignment::None => (),
                     }
 
